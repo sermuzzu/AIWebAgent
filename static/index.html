@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Agent Web Chat</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        #chatbox { width: 100%; max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 24px; }
+        #messages { height: 350px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; background: #fafafa; margin-bottom: 16px; }
+        .msg-user { color: #1976d2; margin-bottom: 8px; }
+        .msg-agent { color: #388e3c; margin-bottom: 16px; }
+        #input-area { display: flex; gap: 8px; }
+        #user-input { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #bbb; }
+        #send-btn { padding: 8px 16px; border: none; background: #1976d2; color: #fff; border-radius: 4px; cursor: pointer; }
+        #send-btn:disabled { background: #aaa; }
+        #end-btn, #new-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        #end-btn { background: #d32f2f; color: #fff; }
+        #new-btn { background: #388e3c; color: #fff; }
+    </style>
+</head>
+<body>
+<div id="chatbox">
+    <h2>AI Agent Web Chat</h2>
+    <div id="messages"></div>
+    <div id="input-area">
+        <input id="user-input" type="text" placeholder="Type your message..." autocomplete="off" />
+        <button id="send-btn">Send</button>
+        <button id="end-btn" style="background:#d32f2f;color:#fff;">End Conversation</button>
+        <button id="new-btn" style="background:#388e3c;color:#fff;">New Conversation</button>
+    </div>
+</div>
+<script>
+let started = false;
+let goal = '';
+const messagesDiv = document.getElementById('messages');
+const userInput = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+const endBtn = document.getElementById('end-btn');
+const newBtn = document.getElementById('new-btn');
+
+function appendMessage(text, sender) {
+    const div = document.createElement('div');
+    div.className = sender === 'user' ? 'msg-user' : 'msg-agent';
+    div.textContent = (sender === 'user' ? 'You: ' : 'Agent: ') + text;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+window.onload = function() {
+    userInput.disabled = true;
+    sendBtn.disabled = true;
+};
+
+async function startChat() {
+    goal = prompt('Enter a goal for the AI agent:');
+    if (!goal) return;
+    await fetch('/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: goal })
+    });
+    started = true;
+    userInput.disabled = false;
+    sendBtn.disabled = false;
+    appendMessage('Goal set: ' + goal, 'agent');
+}
+
+async function sendMessage() {
+    if (!started) {
+        await startChat();
+        if (!started) return;
+    }
+    const text = userInput.value.trim();
+    if (!text) return;
+    appendMessage(text, 'user');
+    userInput.value = '';
+    sendBtn.disabled = true;
+    const res = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+    });
+    const data = await res.json();
+    appendMessage(data.reply, 'agent');
+    sendBtn.disabled = false;
+}
+
+function endConversation() {
+    appendMessage('Conversation ended.', 'agent');
+    started = false;
+    goal = '';
+    userInput.value = '';
+    userInput.disabled = true;
+    sendBtn.disabled = true;
+}
+
+function newConversation() {
+    messagesDiv.innerHTML = '';
+    started = false;
+    goal = '';
+    userInput.disabled = false;
+    sendBtn.disabled = false;
+    startChat();
+}
+
+endBtn.onclick = endConversation;
+newBtn.onclick = newConversation;
+sendBtn.onclick = sendMessage;
+userInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') sendMessage();
+});
+</script>
+</body>
+</html>
